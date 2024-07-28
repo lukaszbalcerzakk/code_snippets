@@ -1,28 +1,32 @@
 let
   // works for Europe
   // based on https://www.youtube.com/watch?v=xOj7KNqe_cI
-  fn = (DateTimeUTC as datetime, optional localTimeZone as number) as datetime =>
+  fn = (DateTimeUTC as nullable datetime, optional localTimeZone as nullable number) as nullable datetime =>
     let
-      localDateTime = DateTimeUTC + #duration(0, localTimeZone, 0, 0),
-      // last Sunday in March
-      SummerTimeStartDate = Date.StartOfWeek(#date(Date.Year(localDateTime), 3, 31), Day.Sunday),
-      // last Sunday in October
-      WinterTimeStartDate = Date.StartOfWeek(#date(Date.Year(localDateTime), 10, 31), Day.Sunday),
-      // Daylight Saving Time
-      DST =
-        if DateTimeUTC
-          < SummerTimeStartDate
-          & #time(1, 0, 0) or DateTimeZone.RemoveZone(DateTimeZone.UtcNow()) > WinterTimeStartDate
-          & #time(1, 0, 0)
-        then
-          0
-        else
-          1,
       result =
-        if localTimeZone is null then
-          DateTimeUTC
+        if DateTimeUTC is null then
+          null
         else
-          DateTimeUTC + #duration(0, localTimeZone + DST, 0, 0)
+          let
+            localDateTime = DateTimeUTC + #duration(0, localTimeZone, 0, 0),
+            // last Sunday in March
+            SummerTimeStartDate = Date.StartOfWeek(#date(Date.Year(localDateTime), 3, 31), Day.Sunday),
+            // last Sunday in October
+            WinterTimeStartDate = Date.StartOfWeek(#date(Date.Year(localDateTime), 10, 31), Day.Sunday),
+            // Daylight Saving Time
+            DST =
+              if DateTimeUTC < SummerTimeStartDate & #time(1, 0, 0) or DateTimeZone.RemoveZone(DateTimeZone.UtcNow()) > WinterTimeStartDate & #time(1, 0, 0)
+              then
+                0
+              else
+                1,
+            finalResult =
+              if localTimeZone is null then
+                DateTimeUTC
+              else
+                DateTimeUTC + #duration(0, localTimeZone + DST, 0, 0)
+          in
+            finalResult
     in
       result
 in

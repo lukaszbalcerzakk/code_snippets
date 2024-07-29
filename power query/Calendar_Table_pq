@@ -1,0 +1,321 @@
+let
+  // Configurable parameters.
+  // See also model parameter [Date - End date type]
+  CustomStartYear = 2020, 
+  CustomEndYear = 2023, 
+  FirstFiscalMonth = 10, 
+  // Non-configurable parameters
+  Culture = "en-GB", 
+  CurrentText = if Culture = "pl" then "obecny" else "Current", 
+  Today = Date.From(DateTime.LocalNow()), 
+  StartDateType = "Custom Date",//#"Date - Start date type", 
+  StartDate = 
+    if StartDateType = "Min Fact Date" then
+      Date.StartOfYear(#"Date - Min Fact Date")
+    else if StartDateType = "Custom Date" then
+      #date(CustomStartYear, 1, 1)
+    else
+      Date.StartOfYear(Date.AddYears(Today, - 5)), 
+  EndDateType = "Custom Date",//#"Date - End date type", 
+  EndDate = 
+    if EndDateType = "Max Fact Date" then
+      Date.EndOfYear(#"Date - Max Fact Date")
+    else if EndDateType = "Custom Date" then
+      #date(CustomEndYear, 12, 31)
+    else
+      Date.EndOfYear(Today), 
+  FiscalOffset = 13 - FirstFiscalMonth, 
+  FiscalIndex = if (FiscalOffset >= 12 or FiscalOffset < 0) then 0 else FiscalOffset, 
+  // query start
+  #"List of Dates" = List.Dates(
+    StartDate, 
+    Duration.Days(EndDate - StartDate) + 1, 
+    #duration(1, 0, 0, 0)
+  ), 
+  #"Converted to Table" = Table.FromList(
+    #"List of Dates", 
+    Splitter.SplitByNothing(), 
+    type table [Date = Date.Type]
+  ), 
+  #"Insert Date Integer" = Table.AddColumn(
+    #"Converted to Table", 
+    "Date Integer", 
+    each Number.From(Date.ToText([Date], "yyyyMMdd")), 
+    Int64.Type
+  ), 
+  #"Insert Year" = Table.AddColumn(
+    #"Insert Date Integer", 
+    "Year", 
+    each Date.Year([Date]), 
+    Int64.Type
+  ), 
+  // Creates a dynamic year value called 'Current' that moves with the current date. Put this value in a slicer and it automatically switches to the Current period.
+  #"Add Year Default" = Table.AddColumn(
+    #"Insert Year", 
+    "Year Default", 
+    each if Date.Year(Today) = [Year] then CurrentText else Text.From([Year]), 
+    type text
+  ), 
+  #"Insert Year Month" = Table.AddColumn(
+    #"Add Year Default", 
+    "Year Month", 
+    each Date.StartOfMonth([Date]), 
+    type date
+  ), 
+  #"Insert Month Number" = Table.AddColumn(
+    #"Insert Year Month", 
+    "Month Of Year", 
+    each Date.Month([Date]), 
+    Int64.Type
+  ), 
+  #"Insert Month Name" = Table.AddColumn(
+    #"Insert Month Number", 
+    "Month Name", 
+    each Date.MonthName([Date], Culture), 
+    type text
+  ), 
+  #"Insert Month Name Short" = Table.AddColumn(
+    #"Insert Month Name", 
+    "Month Name Short", 
+    each Date.ToText([Date], "MMM", Culture), 
+    type text
+  ), 
+  // Creates a dynamic year value called 'Current' that moves with the current date. Put this value in a slicer and it automatically switches to the current period.
+  #"Add Month Name Default" = Table.AddColumn(
+    #"Insert Month Name Short", 
+    "Month Name Default", 
+    each if Date.Month(Today) = [Month Of Year] then CurrentText else [Month Name], 
+    type text
+  ), 
+  #"Insert Start of Month" = Table.AddColumn(
+    #"Add Month Name Default", 
+    "Start of Month", 
+    each Date.StartOfMonth([Date]), 
+    type date
+  ), 
+  #"Inserted End of Month" = Table.AddColumn(
+    #"Insert Start of Month", 
+    "End of Month", 
+    each Date.EndOfMonth([Date]), 
+    type date
+  ), 
+  #"Inserted Days in Month" = Table.AddColumn(
+    #"Inserted End of Month", 
+    "Days in Month", 
+    each Date.DaysInMonth([Date]), 
+    Int64.Type
+  ), 
+  #"Add ISO Week" = Table.AddColumn(
+    #"Inserted Days in Month", 
+    "ISO Weeknumber", 
+    each 
+      let
+        CurrentThursday = Date.AddDays([Date], 3 - Date.DayOfWeek([Date], Day.Monday)), 
+        YearCurrThursday = Date.Year(CurrentThursday), 
+        FirstThursdayOfYear = Date.AddDays(
+          #date(YearCurrThursday, 1, 7), 
+          - Date.DayOfWeek(#date(YearCurrThursday, 1, 1), Day.Friday)
+        ), 
+        ISO_Week = Duration.Days(CurrentThursday - FirstThursdayOfYear) / 7 + 1
+      in
+        ISO_Week, 
+    Int64.Type
+  ), 
+  #"Add ISO Year" = Table.AddColumn(
+    #"Add ISO Week", 
+    "ISO Year", 
+    each 
+      let
+        CurrentThursday  = Date.AddDays([Date], 3 - Date.DayOfWeek([Date], Day.Monday)), 
+        YearCurrThursday = Date.Year(CurrentThursday)
+      in
+        YearCurrThursday, 
+    Int64.Type
+  ), 
+  #"Insert Start of Week" = Table.AddColumn(
+    #"Add ISO Year", 
+    "Start of Week", 
+    each Date.StartOfWeek([Date], Day.Monday), 
+    type date
+  ), 
+  #"Added Year Week" = Table.AddColumn(
+    #"Insert Start of Week", 
+    "ISO Year Week", 
+    each "W" & Text.From([ISO Weeknumber]) & "-" & Text.From([ISO Year]), 
+    type text
+  ), 
+  #"Insert Quarter Number" = Table.AddColumn(
+    #"Added Year Week", 
+    "Quarter Number", 
+    each Date.QuarterOfYear([Date]), 
+    Int64.Type
+  ), 
+  #"Added Quarter" = Table.AddColumn(
+    #"Insert Quarter Number", 
+    "Quarter", 
+    each "Q" & Text.From(Date.QuarterOfYear([Date])), 
+    type text
+  ), 
+  #"Inserted Year Quarter" = Table.AddColumn(
+    #"Added Quarter", 
+    "Year Quarter", 
+    each "Q" & Text.From(Date.QuarterOfYear([Date])) & "-" & Text.From(Date.Year([Date])), 
+    type text
+  ), 
+  #"Inserted Start of Quarter" = Table.AddColumn(
+    #"Inserted Year Quarter", 
+    "Start of Quarter", 
+    each Date.StartOfQuarter([Date]), 
+    type date
+  ), 
+  #"Insert Day Name" = Table.AddColumn(
+    #"Inserted Start of Quarter", 
+    "Day Name", 
+    each Date.DayOfWeekName([Date], Culture), 
+    type text
+  ), 
+  #"Insert Day Name Short" = Table.AddColumn(
+    #"Insert Day Name", 
+    "Day Name Short", 
+    each Date.ToText([Date], "ddd", Culture), 
+    type text
+  ), 
+  #"Insert Day of Month Number" = Table.AddColumn(
+    #"Insert Day Name Short", 
+    "Day of Month Number", 
+    each Date.Day([Date]), 
+    Int64.Type
+  ), 
+  #"Insert Day of Week" = Table.AddColumn(
+    #"Insert Day of Month Number", 
+    "Day of Week Number", 
+    each Date.DayOfWeek([Date]), 
+    Int64.Type
+  ), 
+  #"Insert Day of Year" = Table.AddColumn(
+    #"Insert Day of Week", 
+    "Day of Year Number", 
+    each Date.DayOfYear([Date]), 
+    Int64.Type
+  ), 
+  #"Added Fiscal Base Date" = Table.AddColumn(
+    #"Insert Day of Year", 
+    "Fiscal Base Date", 
+    each Date.AddMonths([Date], FiscalIndex), 
+    type date
+  ), 
+  #"Inserted Fiscal Year" = Table.AddColumn(
+    #"Added Fiscal Base Date", 
+    "Fiscal Year", 
+    each "FY " & Text.From(Date.Year([Fiscal Base Date])), 
+    type text
+  ), 
+  // Creates a dynamic fiscal year value called 'Current' that moves with the current date. Put this value in a slicer and it automatically switches to the Current period.
+  #"Add Fiscal Year Default" = Table.AddColumn(
+    #"Inserted Fiscal Year", 
+    "Fiscal Year Default", 
+    each 
+      if Date.Year(Date.AddMonths(Today, FiscalIndex)) = Date.Year([Fiscal Base Date]) then
+        CurrentText
+      else
+        Text.From([Fiscal Year]), 
+    type text
+  ), 
+  #"Inserted Fiscal Quarter" = Table.AddColumn(
+    #"Add Fiscal Year Default", 
+    "Fiscal Quarter", 
+    each "FQ" & Text.From(Date.QuarterOfYear([Fiscal Base Date])), 
+    type text
+  ), 
+  #"Inserted Fiscal Year Quarter" = Table.AddColumn(
+    #"Inserted Fiscal Quarter", 
+    "Fiscal Year Quarter", 
+    each "FQ"
+      & Text.From(Date.QuarterOfYear([Fiscal Base Date]))
+      & "-"
+      & Text.From(Date.Year([Fiscal Base Date]))
+  ), 
+  #"Inserted Start of Fiscal Quarter" = Table.AddColumn(
+    #"Inserted Fiscal Year Quarter", 
+    "Start of Fiscal Quarter", 
+    each Date.StartOfQuarter([Fiscal Base Date]), 
+    type date
+  ), 
+  #"Add Day Offset" = Table.AddColumn(
+    #"Inserted Start of Fiscal Quarter", 
+    "Day Offset", 
+    each Number.From([Date] - Date.From(Today)), 
+    Int64.Type
+  ), 
+  #"Add Week Offset" = Table.AddColumn(
+    #"Add Day Offset", 
+    "Week Offset", 
+    each (
+      Number.From(Date.StartOfWeek([Date], Day.Monday))
+        - Number.From(Date.StartOfWeek(Today, Day.Monday))
+    )
+      / 7, 
+    Int64.Type
+  ), 
+  #"Add Month Offset" = Table.AddColumn(
+    #"Add Week Offset", 
+    "Month Offset", 
+    each ([Year] - Date.Year(Today)) * 12 + ([Month Of Year] - Date.Month(Today)), 
+    Int64.Type
+  ), 
+  #"Add Quarter Offset" = Table.AddColumn(
+    #"Add Month Offset", 
+    "Quarter Offset", 
+    each ([Year] - Date.Year(Today)) * 4 + Date.QuarterOfYear([Date]) - Date.QuarterOfYear(Today), 
+    Int64.Type
+  ), 
+  #"Add Year Offset" = Table.AddColumn(
+    #"Add Quarter Offset", 
+    "Year Offset", 
+    each [Year] - Date.Year(Today), 
+    Int64.Type
+  ), 
+  #"Insert Is Weekend" = Table.AddColumn(
+    #"Add Year Offset", 
+    "Is Weekend", 
+    each if Date.DayOfWeek([Date]) >= 5 then 1 else 0, 
+    Int64.Type
+  ), 
+  #"Insert Is Weekday" = Table.AddColumn(
+    #"Insert Is Weekend", 
+    "Is Weekday", 
+    each if Date.DayOfWeek([Date]) < 5 then 1 else 0, 
+    Int64.Type
+  ), 
+  // checks for the last month with data 
+  /*#"Added DateWithSales" = Table.AddColumn(
+    #"Insert Is Weekday", 
+    "DateWithSales", 
+    each [Date] <= Date.EndOfMonth(#"Date - Max Fact Date"), 
+    type logical
+  ), */ 
+  #"Inserted Start of Year" = Table.AddColumn(
+    #"Insert Is Weekday", 
+    "Start Of Year", 
+    each Date.StartOfYear([Date]), 
+    type date
+  ), 
+  #"Select Relevant Columns" = Table.SelectColumns(
+    #"Inserted Start of Year", 
+    {
+      "Date", 
+      "Year", 
+      "Year Month", 
+      "Month Of Year", 
+      "Month Name", 
+      "Start of Month", 
+      "Year Quarter", 
+      "Start of Quarter", 
+      "Day Name", 
+      "Day of Week Number", 
+      //"DateWithSales", 
+      "Start Of Year"
+    }
+  )
+in
+  #"Select Relevant Columns"

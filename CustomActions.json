@@ -1,0 +1,88 @@
+﻿{
+  "Actions": [
+    {
+      "Name": "Download BPA",
+      "Enabled": "true",
+      "Execute": "System.Net.WebClient w = new System.Net.WebClient(); \r\n\r\nstring path = System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData);\r\nstring url = \"https://raw.githubusercontent.com/microsoft/Analysis-Services/master/BestPracticeRules/BPARules.json\";\r\nstring version = System.Windows.Forms.Application.ProductVersion.Substring(0,1);\r\nstring downloadLoc = path+@\"\\TabularEditor\\BPARules.json\";\r\n\r\nif (version == \"3\")\r\n{\r\n    downloadLoc = path+@\"\\TabularEditor3\\BPARules.json\";\r\n}\r\n\r\nw.DownloadFile(url, downloadLoc);",
+      "Tooltip": "",
+      "ValidContexts": "Model, Table, Measure, Column"
+    },
+    {
+      "Name": "Format All Measures",
+      "Enabled": "true",
+      "Execute": "Model.AllMeasures.FormatDax();",
+      "Tooltip": "Format All DAX Measures in the model",
+      "ValidContexts": "Measure"
+    },
+    {
+      "Name": "Format DAX All Calculated Columns",
+      "Enabled": "true",
+      "Execute": "// Loop through calculated columns in the model and format their DAX expressions\r\nforeach (  var _columns  in Model.AllColumns )\r\n{\r\n if ( Convert.ToString( _columns.Type ) == \"Calculated\")\r\n {\r\n (_columns as CalculatedColumn).Expression = \"\\n\" + FormatDax( (_columns as CalculatedColumn).Expression, shortFormat: true );\r\n }\r\n}\r\n\r\n// Count & report in an info box the # Calculated Columns formatted\r\nint _nrcolumns = Model.AllColumns.Where(_columns => Convert.ToString(_columns.Type) == \"Calculated\").Count();\r\nInfo(  \"Formatted DAX for \" + Convert.ToString( _nrcolumns ) +  \" calculated columns.\" );",
+      "Tooltip": "",
+      "ValidContexts": "Column"
+    },
+    {
+      "Name": "Format DAX All Calculated Tables",
+      "Enabled": "true",
+      "Execute": "// Loop through calculated tables in the model and format their DAX expressions\r\nforeach (  var _tables  in Model.Tables )\r\n{\r\n if ( Convert.ToString( _tables.Columns[0].Type ) == \"CalculatedTableColumn\")\r\n {\r\n _tables.Partitions[0].Expression = \"\\n\" + FormatDax( _tables.Partitions[0].Expression, shortFormat: true );\r\n }\r\n}\r\n\r\n// Count & report in an info box the # Calculated Tables formatted\r\nint _nrtables = Model.Tables.Where(_tables => Convert.ToString(_tables.Columns[0].Type) == \"CalculatedTableColumn\").Count();\r\nInfo(  \"Formatted DAX for \" + Convert.ToString( _nrtables ) +  \" calculated tables.\" );\r\n",
+      "Tooltip": "",
+      "ValidContexts": "Table"
+    },
+    {
+      "Name": "Format Selected Measures",
+      "Enabled": "true",
+      "Execute": "Selected.Measures.FormatDax();",
+      "Tooltip": "Format Selected DAX Measures in the model",
+      "ValidContexts": "Measure"
+    },
+    {
+      "Name": "create Time Intelligence measures based on YEAR",
+      "Enabled": "true",
+      "Execute": "// skrypt tworzący miary Time Intelligence dotyczące ROKU\r\n\r\n// Creates listed below measures for every selected measure\r\n//PY, YOY, YOY%\r\n//YTD, PYTD, YOYTD, YOYTD%\r\n//PYC, YTDOPY, YTDOPY%\r\n\r\n\r\n// bazuje na DAX Pattern opisanym tu : https://www.daxpatterns.com/standard-time-related-calculations/\r\n// wymaga dodatkowej kolumny w kalendarzu 'Kalendarz'[DateWithSales], aby przy porównaniach okresów brać taką samą liczbę dni\r\n// korzysta z technicznej miary [ShowValueForDates], aby ukrywać wyniki dotyczące przyszłości\r\n\r\n// nowe miary zachowują format miar oryginalnych\r\n// miary % przyjmują format %%\r\n\r\n\r\n\r\nvar dateColumn = \"'Kalendarz'[Date]\";              // tu wskaż kolumnę daty z tabeli kalendarza\r\nvar dateWithSales = \"'Kalendarz'[DateWithSales]\";   // tu wskaż kolumnę DateWithSales \r\nvar ShowValueForDates = \"[ShowValueForDates]\"  ;    // techniczna miara ShowValueForDates\r\nvar folderPath = \"Time Intelligence\";              // wpisz ściężkę do istniejącego folderu, w którym mają być umieszczone nowe miary\r\n\r\n\r\nforeach(var m in Selected.Measures) {\r\n    // PY\r\n    m.Table.AddMeasure(\r\n        m.Name + \" PY\",                                       // Name\r\n        \"IF( \" + ShowValueForDates + \", CALCULATE( \"+ m.DaxObjectName +\", CALCULATETABLE( DATEADD( \" + dateColumn + \", - 1, YEAR ), \" + dateWithSales + \" = TRUE ) ) )\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ;\r\n    // YOY\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YOY\",                                       // Name\r\n        \"VAR ValueCurrentPeriod = \"+ m.DaxObjectName +\" VAR ValuePreviousPeriod = [\"+ m.Name  +\" PY] VAR Result = IF ( NOT ISBLANK ( ValueCurrentPeriod ) && NOT ISBLANK ( ValuePreviousPeriod ),  ValueCurrentPeriod - ValuePreviousPeriod  ) RETURN    Result\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ;\r\n    // YOY%\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YOY%\",                                       // Name\r\n        \"DIVIDE( [\"+ m.Name + \" YOY], [\"+ m.Name + \" PY])\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = \"0.00 %\";  // Set format string as percentage\r\n    // YTD\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YTD\",                                       // Name\r\n        \"IF(\" + ShowValueForDates + \",CALCULATE(\" + m.DaxObjectName +\", DATESYTD( \" + dateColumn + \" ) ) )\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ;\r\n    // PYTD\r\n    m.Table.AddMeasure(\r\n        m.Name + \" PYTD\",                                       // Name\r\n        \"IF (     \" + ShowValueForDates + \",     CALCULATE ( [\"+  m.Name + \" YTD],         CALCULATETABLE (             DATEADD ( \" + dateColumn + \", -1, YEAR ),             \" + dateWithSales + \" = TRUE         )     ) )\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ; \r\n    // YOYTD\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YOYTD\",                                       // Name\r\n        \"VAR ValueCurrentPeriod = [\" + m.Name + \" YTD] VAR ValuePreviousPeriod = [\" + m.Name + \" PYTD] VAR Result =     IF (         NOT ISBLANK ( ValueCurrentPeriod )             && NOT ISBLANK ( ValuePreviousPeriod ),         ValueCurrentPeriod - ValuePreviousPeriod     ) RETURN     Result\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ;\r\n    // YOYTD%\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YOYTD%\",                                       // Name\r\n        \"DIVIDE( [\"+ m.Name + \" YOYTD], [\"+ m.Name + \" PYTD])\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = \"0.00 %\";  // Set format string as percentage;\r\n    // PYC\r\n     m.Table.AddMeasure(\r\n        m.Name + \" PYC\",                                       // Name\r\n        \"IF (     \" + ShowValueForDates + \",     CALCULATE (         \"+ m.DaxObjectName +\",         PARALLELPERIOD ( \" + dateColumn + \", -1, YEAR )     ) )\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ;\r\n    // YTDOPY\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YTDOPY\",                                       // Name\r\n        \"VAR ValueCurrentPeriod = [\" + m.Name + \" YTD] VAR ValuePreviousPeriod = [\" + m.Name + \" PYC] VAR  Result =     IF (         NOT ISBLANK ( ValueCurrentPeriod )             && NOT ISBLANK ( ValuePreviousPeriod ),         ValueCurrentPeriod - ValuePreviousPeriod     ) RETURN   Result   \",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = m.FormatString ; \r\n      // YTDOPY%\r\n    m.Table.AddMeasure(\r\n        m.Name + \" YTDOPY%\",                                       // Name\r\n        \"DIVIDE( [\"+ m.Name + \" YTDOPY], [\"+ m.Name + \" PYC])\",     // DAX expression\r\n        folderPath                                       // Display Folder\r\n    ).FormatString = \"0.00 %\";  // Set format string as percentage\r\n    \r\n}\r\n\r\n",
+      "Tooltip": "PY, YOY, YOY%,YTD, PYTD, YOYTD, YOYTD%,PYC, YTDOPY, YTDOPY%",
+      "ValidContexts": "Measure"
+    },
+	{
+      "Name": "Blanks out selected measures",
+      "Enabled": "true",
+      "Execute": "// Blanks out selected measures\r\nvar timestamp = DateTime.UtcNow.ToString(\"dd-MM-yyyy\");\r\nvar author = \"LB\";\r\nvar intro = \"BLANK() -- the measure was blanked out by \" + author + \" on \" + timestamp;\r\n\r\nforeach(var m in Selected.Measures) {\r\n    var oldExpression = m.Expression;\r\n    m.Expression =  intro + \"\\n\" + \"/* \" + oldExpression + \"*/\"   ;\r\n}\r\n\r\n\r\n\r\n\r\n",
+      "Tooltip": "",
+      "ValidContexts": "Measure"
+    },
+    {
+      "Name": "Create dependency graph in mermaid",
+      "Enabled": "true",
+      "Execute": "// This code is still WIP, it doesn't entirely filter the lineage. Feel free to make adjustments.\r\n\r\nstring dependancies = \"flowchart LR\\n%% Measure dependancy mermaid flowchart\";\r\n\r\n////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\r\n\r\nforeach(var _measures in Model.AllMeasures ) \r\n    {\r\n\r\n    // Deep lineage for upstream measures\r\n    var _upstream_deep              = _measures.DependsOn.Deep();\r\n    var _upstream_measures_deep     = _upstream_deep.OfType<Measure>().Select(c => c).Distinct();\r\n    \r\n    // Direct lineage for upstream measures\r\n    var _upstream                   = _measures.DependsOn;\r\n    var _upstream_measures          = _upstream.Measures.OfType<Measure>().Select(c => c).Distinct();\r\n\r\n////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\r\n\r\n    // Deep lineage for downstream measures\r\n    var _downstream_deep            = _measures.ReferencedBy.Deep();\r\n    var _downstream_measures_deep   = _downstream_deep.OfType<Measure>().Select(c => c).Distinct();\r\n    \r\n    // Direct lineage for downstream measures\r\n    var _downstream                 = _measures.ReferencedBy;\r\n    var _downstream_measures        = _downstream.Measures.OfType<Measure>().Select(c => c).Distinct();\r\n\r\n////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\r\n\r\n    // Only adds upstream measures if they are in the deep lineage\r\n    if ( _upstream_measures_deep.Contains(Selected.Measure) )\r\n        {\r\n        foreach( var measure_dependencies in _upstream_measures )\r\n            { \r\n            dependancies += string.Format(\"\\r\\n\\t{2}[\\\"{3}\\\"] --> {0}[\\\"{1}\\\"]\", \r\n                _measures.LineageTag, \r\n                _measures.Name, \r\n                measure_dependencies.LineageTag, \r\n                measure_dependencies.Name);\r\n            }\r\n        }\r\n\r\n////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\r\n\r\n    // Only adds downstream measures if they are in the deep lineage\r\n    if ( _downstream_measures_deep.Contains(Selected.Measure) )\r\n        {\r\n        foreach( var measure_references in _downstream_measures )\r\n            {\r\n                if (\r\n                measure_references == Selected.Measure ||\r\n                measure_references.ReferencedBy.Measures.OfType<Measure>().Select(c => c).Distinct().Contains(Selected.Measure) ||\r\n                measure_references.DependsOn.Measures.OfType<Measure>().Select(c => c).Distinct().Contains(Selected.Measure))\r\n                    {   \r\n                        dependancies += string.Format(\"\\r\\n\\t{0}[\\\"{1}\\\"] --> {2}[\\\"{3}\\\"]\", \r\n                            _measures.LineageTag, \r\n                            _measures.Name, \r\n                            measure_references.LineageTag, \r\n                            measure_references.Name );\r\n                    }\r\n            }\r\n        }\r\n\r\n    }\r\n\r\n// Formats the selected measure in mermaid using a specific style\r\ndependancies += string.Format(\"\\r\\n\\n%% Formatting\\n\\tstyle \" + Selected.Measure.LineageTag + \" fill:#f87272,stroke:#333,stroke-width:2px\");\r\n\r\ndependancies.Output();",
+      "Tooltip": "copy output to https://mermaid.live/",
+      "ValidContexts": "Measure"
+    },
+    {
+      "Name": "Create SELECTEDVALUE measure based on selected column",
+      "Enabled": "true",
+      "Execute": "// Creates a SELECTEDVALUE measure for every currently selected column.\r\nforeach(var c in Selected.Columns)\r\n{\r\n    var newMeasure = c.Table.AddMeasure(\r\n        \"Selected \" + c.Name,                    // Name\r\n        \"SELECTEDVALUE(\" + c.DaxObjectFullName + \")\",    // DAX expression\r\n        c.DisplayFolder                        // Display Folder\r\n    );\r\n    \r\n    // Set the format string on the new measure:\r\n    newMeasure.FormatString = c.FormatString;\r\n\r\n    // Provide some documentation:\r\n    newMeasure.Description = \"This measure returns selected value of the column \" + c.DaxObjectFullName;\r\n\r\n}",
+      "Tooltip": "",
+      "ValidContexts": "Column"
+    },
+    {
+      "Name": "Create SUM measure from columns",
+      "Enabled": "true",
+      "Execute": "// Creates a SUM measure for every currently selected column and hide the column.\r\nforeach(var c in Selected.Columns)\r\n{\r\n    var newMeasure = c.Table.AddMeasure(\r\n        \"Sum of \" + c.Name,                    // Name\r\n        \"SUM ( \" + c.DaxObjectFullName + \" )\",    // DAX expression\r\n        c.DisplayFolder                        // Display Folder\r\n    );\r\n    \r\n    // Set the format string on the new measure:\r\n    newMeasure.FormatString = \"0.00\";\r\n\r\n    // Provide some documentation:\r\n    newMeasure.Description = \"This measure is the sum of column \" + c.DaxObjectFullName;\r\n\r\n    // Hide the base column:\r\n    c.IsHidden = true;\r\n}",
+      "Tooltip": "Creates a SUM measure for every currently selected column and hide the column",
+      "ValidContexts": "Column"
+    },
+    {
+      "Name": "Replace Measure Name - CHANGE PARAMETERS",
+      "Enabled": "true",
+      "Execute": "/* Cycle over selected measures in model and replaces the FromString with the ToString in the measure names*/\r\n\r\n var FromString = \"copy\";\r\n var ToString = \"Annualized\";\r\n\r\n foreach (var m in Selected.Measures)\r\n    {\r\n        m.Name = m.Name.Replace(FromString,ToString);\r\n        \r\n    }",
+      "Tooltip": "",
+      "ValidContexts": "Measure"
+    },
+    {
+      "Name": "Replace DAX in a Measure - CHANGE PARAMETERS",
+      "Enabled": "true",
+      "Execute": "/* Cycle over selected measures in model and replaces the FromString with the ToString */\r\n\r\nvar FromString = \"FxB\";\r\nvar ToString = \"FxB Annualized\";\r\n\r\nforeach (var m in Selected.Measures)\r\n    {\r\n        m.Expression = m.Expression.Replace(FromString,ToString);\r\n        \r\n    }",
+      "Tooltip": "",
+      "ValidContexts": "Measure"
+    }
+  ]
+}

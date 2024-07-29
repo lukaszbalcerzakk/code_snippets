@@ -1,12 +1,8 @@
 let
-  // works for Europe
+  // works for Europe (preserves Daylight Saving Time)
   // based on https://www.youtube.com/watch?v=xOj7KNqe_cI
+  // ignores nulls
   fn = (DateTimeUTC as nullable datetime, optional localTimeZone as nullable number) as nullable datetime =>
-    let
-      result =
-        if DateTimeUTC is null then
-          null
-        else
           let
             localDateTime = DateTimeUTC + #duration(0, localTimeZone, 0, 0),
             // last Sunday in March
@@ -15,19 +11,18 @@ let
             WinterTimeStartDate = Date.StartOfWeek(#date(Date.Year(localDateTime), 10, 31), Day.Sunday),
             // Daylight Saving Time
             DST =
-              if DateTimeUTC < SummerTimeStartDate & #time(1, 0, 0) or DateTimeZone.RemoveZone(DateTimeZone.UtcNow()) > WinterTimeStartDate & #time(1, 0, 0)
+              if DateTimeUTC < SummerTimeStartDate & #time(1, 0, 0) or DateTimeUTC > WinterTimeStartDate & #time(1, 0, 0)
               then
                 0
               else
                 1,
-            finalResult =
+            Result =
               if localTimeZone is null then
                 DateTimeUTC
               else
-                DateTimeUTC + #duration(0, localTimeZone + DST, 0, 0)
-          in
-            finalResult
+                DateTimeUTC + #duration(0, localTimeZone + DST, 0, 0),
+            finalResult = if DateTimeUTC is null then null else Result
     in
-      result
+      finalResult
 in
   fn

@@ -1,0 +1,37 @@
+col,n_tbl,tbls
+CustomerId,6,customers; orders; securityprofiles; shmresources; shmusers; shmvisitresults
+OrderId,5,appointmenthistory; ordercharges; ordercodes; orders; shmvisits
+ContractId,4,contracts; invoicebatches; orders; ratebooks
+OrganisationId,4,contracts; customers; invoicebatches; organisations
+ShmCustomerId,4,addresscontacttypes; contracts; organisations; priorities
+TableCatalogId,4,addresscontacttypes; addresses; contacts; tablecatalogitems
+TeamId,4,orders; shmresources; shmvisits; team
+AccessStageId,3,accessstage; contracts; shmvisitresults
+AddressContactTypeId,3,addresscontacttypes; addresses; contacts
+AddressId,3,addresses; contacts; orders
+LabourTypeId,3,labourtypes; ratebookitems; shmvisits
+PriorityId,3,orders; priorities; shmvisits
+RotaId,3,customers; shmresources; shmvisits
+UserId,3,appointmenthistory; loginaudit; shmusers
+VisitId,3,appointmenthistory; ordercodes; shmvisits
+VisitResultId,3,shmvisitresults; shmvisits; visitresultevent
+AddressContactTypeGroupId,2,addresscontacttypegroups; addresscontacttypes
+CodeId,2,ordercodes; ratebookitems
+ContactId,2,contacts; orders
+ContractGroupId,2,shmresources; shmusers
+CostCategoryId,2,costcategory; orders
+EventId,2,shmvisitresults; visitresultevent
+InvoiceBatchId,2,invoicebatches; orders
+MendelWorldId,2,contracts; shmresources
+ObjectId,2,addresses; contacts
+OvertimeLabourTypeId,2,labourtypes; shmvisits
+PlannedWorkTeamId,2,orders; shmresources
+PropertyTypeId,2,addresses; propertytypes
+RateBookId,2,ratebookitems; ratebooks
+ResourceId,2,ordercodes; shmresources
+ResourceWorkingTypeId,2,shmresources; shmvisits
+SecurityProfileId,2,securityprofiles; shmusers
+SubcontractOrderId,2,ordercodes; shmvisits
+VisitSourceId,2,shmvisits; visitsources
+WorkOrderViewId,2,contracts; orders
+WorkingDayCalendarId,2,organisations; shmresources

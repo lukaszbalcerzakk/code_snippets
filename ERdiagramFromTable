@@ -1,0 +1,45 @@
+# Install and load the required package
+install.packages("DiagrammeR")
+library(DiagrammeR)
+
+# Sample dataframe
+df <- data.frame(
+  table_name = c("Table1", "Table2", "Table1", "Table3"),
+  key_column = c("id", "id", "key1", "key2")
+)
+
+# Create a graph object
+graph <- create_graph()
+
+# Add nodes (tables)
+unique_tables <- unique(df$table_name)
+for (table in unique_tables) {
+  graph <- add_node(graph, label = table, type = "table")
+}
+
+# Add edges (relationships)
+for (i in 1:nrow(df)) {
+  from_table <- df$table_name[i]
+  key_column <- df$key_column[i]
+  
+  # Find all tables that have the same key column
+  related_tables <- df$table_name[df$key_column == key_column]
+  
+  # Create edges between the current table and all related tables
+  for (related_table in related_tables) {
+    if (from_table != related_table) {
+      graph <- add_edge(graph, from = from_table, to = related_table, rel = "relationship")
+    }
+  }
+}
+
+# Remove duplicate edges
+graph <- combine_edges(graph)
+
+# Customize nodes and edges
+graph <- set_node_attrs(graph, node_attr = "style", values = "filled")
+graph <- set_node_attrs(graph, node_attr = "fillcolor", values = "lightblue")
+graph <- set_edge_attrs(graph, edge_attr = "color", values = "gray")
+
+# Render the graph
+render_graph(graph)

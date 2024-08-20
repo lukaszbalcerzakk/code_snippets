@@ -1,0 +1,121 @@
+let
+  // Configurable parameters.
+  CustomStartYear = 2015, 
+  CustomEndYear = null,
+  FirstFiscalMonth = 10, 
+  CurrentText = "Current",
+  Culture = "en-UK",
+  // Non-configurable parameters
+  Today = Date.From(DateTimeZone.RemoveZone(DateTimeZone.FixedUtcNow())),
+  StartDate =  if CustomStartYear is null 
+    then Date.AddYears(Date.StartOfYear(Today),-10) 
+    else  #date(CustomStartYear, 12, 31),
+  EndDate =  if CustomEndYear is null 
+    then Date.AddYears(Date.EndOfYear(Today),1) 
+    else  #date(CustomEndYear, 12, 31),
+  
+  // query start
+  #"List of Dates" = List.Dates(
+    StartDate, 
+    Duration.Days(EndDate - StartDate) + 1, 
+    #duration(1, 0, 0, 0)
+  ),
+    #"Converted to Table" = Table.FromList(
+    #"List of Dates", 
+    Splitter.SplitByNothing(), 
+    type table [Date = Date.Type]
+  ), 
+  #"Insert Date Integer" = Table.AddColumn(
+    #"Converted to Table", 
+    "Date Integer", 
+    each Number.From(Date.ToText([Date], "yyyyMMdd")), 
+    Int64.Type
+  ), 
+  #"Insert Year" = Table.AddColumn(
+    #"Insert Date Integer", 
+    "Year", 
+    each Date.Year([Date]), 
+    Int64.Type
+  ), 
+  // Creates a dynamic year value called 'Current' that moves with the current date. Put this value in a slicer and it automatically switches to the Current period.
+  #"Add Year Default" = Table.AddColumn(
+    #"Insert Year", 
+    "Year Default", 
+    each if Date.Year(Today) = [Year] then CurrentText else Text.From([Year]), 
+    type text
+  ), 
+  #"Insert Year Month" = Table.AddColumn(
+    #"Add Year Default", 
+    "Year Month", 
+    each Date.StartOfMonth([Date]), 
+    type date
+  ), 
+  #"Insert Month Number" = Table.AddColumn(
+    #"Insert Year Month", 
+    "Month Of Year", 
+    each Date.Month([Date]), 
+    Int64.Type
+  ), 
+  #"Insert Month Name" = Table.AddColumn(
+    #"Insert Month Number", 
+    "Month Name", 
+    each Date.MonthName([Date], Culture), 
+    type text
+  ), 
+  #"Insert Month Name Short" = Table.AddColumn(
+    #"Insert Month Name", 
+    "Month Name Short", 
+    each Date.ToText([Date], "MMM", Culture), 
+    type text
+  ), 
+  // Creates a dynamic year value called 'Current' that moves with the current date. Put this value in a slicer and it automatically switches to the current period.
+  #"Add Month Name Default" = Table.AddColumn(
+    #"Insert Month Name Short", 
+    "Month Name Default", 
+    each if Date.Month(Today) = [Month Of Year] then CurrentText else [Month Name], 
+    type text
+  ),
+  #"Insert Quarter Number" = Table.AddColumn(
+    #"Add Month Name Default", 
+    "Quarter Number", 
+    each Date.QuarterOfYear([Date]), 
+    Int64.Type
+  ), 
+  #"Added Quarter" = Table.AddColumn(
+    #"Insert Quarter Number", 
+    "Quarter", 
+    each "Q" & Text.From(Date.QuarterOfYear([Date])), 
+    type text
+  ), 
+  #"Inserted Year Quarter" = Table.AddColumn(
+    #"Added Quarter", 
+    "Year Quarter", 
+    each "Q" & Text.From(Date.QuarterOfYear([Date])) & "-" & Text.From(Date.Year([Date])), 
+    type text
+  ), 
+  #"Inserted Start of Quarter" = Table.AddColumn(
+    #"Inserted Year Quarter", 
+    "Start of Quarter", 
+    each Date.StartOfQuarter([Date]), 
+    type date
+  ), 
+  #"Insert Day Name" = Table.AddColumn(
+    #"Inserted Start of Quarter", 
+    "Day Name", 
+    each Date.DayOfWeekName([Date], Culture), 
+    type text
+  ), 
+  #"Insert Day Name Short" = Table.AddColumn(
+    #"Insert Day Name", 
+    "Day Name Short", 
+    each Date.ToText([Date], "ddd", Culture), 
+    type text
+  ), 
+  #"Insert Day of Week" = Table.AddColumn(
+    #"Insert Day Name Short", 
+    "Day of Week Number", 
+    each Date.DayOfWeek([Date],1), 
+    Int64.Type
+  )
+    in 
+  #"Insert Day of Week"
